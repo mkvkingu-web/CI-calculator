@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold Calculator</title>
+    <style>
+        body { font-family: sans-serif; background: #fdfdfd; padding: 5px; margin: 0; font-size: 16px; }
+        .container { width: 100%; max-width: 500px; background: white; padding: 8px; margin: auto; box-sizing: border-box; }
+        
+        .header-fields { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; background: #fffbe6; padding: 10px; border-radius: 8px; }
+        .field { flex: 1; }
+        label { font-weight: bold; font-size: 0.8em; display: block; margin-bottom: 4px; color: #665c33; }
+        input[type="number"], input[type="text"] { width: 100%; padding: 8px 5px; border: 1px solid #dcdcdc; border-radius: 4px; box-sizing: border-box; font-size: 1em; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 0; }
+        th { background: #f2f2f2; border: 1px solid #e0e0e0; padding: 6px 4px; font-size: 0.85em; text-align: left; }
+        td { border: 1px solid #e0e0e0; padding: 4px 2px; }
+        .changeable-row { background-color: #f0f7ff; }
+        
+        .btn { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; font-size: 0.95em; }
+        .btn-add { background: #28a745; color: white; margin: 10px 0; }
+        .btn-remove { background: #dc3545; color: white; width: 32px; height: 32px; padding: 0; }
+        
+        .summary-wrapper { margin-top: 5px; border-top: 2px solid #d4af37; padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .hallmark-section { width: 45%; }
+        .summary-stats { width: 50%; text-align: right; font-weight: bold; font-size: 1em; line-height: 1.4; }
+        span.val { color: #b8860b; }
+        td input { border: none !important; background: transparent; text-align: center; font-size: 0.95em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-fields">
+        <div class="field"><label>Rate (10g)</label><input type="number" id="goldRate" placeholder="Rate" oninput="calculate()"></div>
+        <div class="field"><label>Budget</label><input type="number" id="budget" placeholder="Cash" oninput="calculate()"></div>
+        <div class="field"><label>Exch. (g)</label><input type="number" id="exchangeWeight" placeholder="0" oninput="calculate()"></div>
+    </div>
+
+    <table id="productTable">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Product</th>
+                <th style="width: 15%;">Pur%</th>
+                <th style="width: 20%;">Wt(g)</th>
+                <th style="width: 20%;">Cost</th>
+                <th style="width: 10%;">[X]</th>
+                <th style="width: 10%;"></th>
+            </tr>
+        </thead>
+        <tbody id="productBody"></tbody>
+    </table>
+    
+    <button class="btn btn-add" onclick="addRow()">+ Add Product</button>
+
+    <div class="summary-wrapper">
+        <div class="hallmark-section">
+            <label>Expenses</label>
+            <input type="number" id="expenses" placeholder="0" oninput="calculate()">
+        </div>
+        <div class="summary-stats">
+            Total Buying Power: ₹<span id="totalPower" class="val">0</span><br>
+            Money Remaining: ₹<span id="moneyLeft" class="val">0</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    let products = [];
+
+    function renderTable() {
+        const tbody = document.getElementById('productBody');
+        tbody.innerHTML = '';
+        products.forEach((p, index) => {
+            const row = document.createElement('tr');
+            if(p.isChangeable) row.className = 'changeable-row';
+            row.innerHTML = `
+                <td><input type="text" value="${p.name}" style="text-align:left; padding-left:5px;" placeholder="Item" onchange="updateProduct(${index}, 'name', this.value)"></td>
+                <td><input type="number" value="${p.purity}" placeholder="0" oninput="updateProduct(${index}, 'purity', this.value)"></td>
+                <td><input type="number" value="${p.weight}" ${p.isChangeable ? 'disabled' : ''} placeholder="0" oninput="updateProduct(${index}, 'weight', this.value)"></td>
+                <td style="text-align:center">₹<span id="cost-${index}">0</span></td>
+                <td style="text-align:center"><input type="checkbox" ${p.isChangeable ? 'checked' : ''} onclick="setChangeable(${index})"></td>
+                <td style="text-align:center"><button class="btn btn-remove" onclick="removeRow(${index})">-</button></td>
+            `;
+            tbody.appendChild(row);
+        });
+        calculate();
+    }
+
+    function addRow() {
+        const makeChangeable = products.length === 0;
+        products.push({ name: '', purity: '', weight: '', isChangeable: makeChangeable });
+        renderTable();
+    }
+
+    function removeRow(index) {
+        products.splice(index, 1);
+        renderTable();
+    }
+
+    function updateProduct(index, field, value) {
+        products[index][field] = field === 'name' ? value : parseFloat(value) || 0;
+        calculate();
+    }
+
+    function setChangeable(index) {
+        const currentState = products[index].isChangeable;
+        products.forEach((p, i) => p.isChangeable = false);
+        products[index].isChangeable = !currentState;
+        renderTable();
+    }
+
+    function calculate() {
+        const ratePerGram = (parseFloat(document.getElementById('goldRate').value) || 0) / 10;
+        const rawBudget = parseFloat(document.getElementById('budget').value) || 0;
+        const expenses = parseFloat(document.getElementById('expenses').value) || 0;
+        const exchangeWeight = parseFloat(document.getElementById('exchangeWeight').value) || 0;
+
+        const totalPower = (rawBudget - expenses) + (exchangeWeight * ratePerGram);
+        document.getElementById('totalPower').innerText = Math.round(totalPower).toLocaleString('en-IN');
+
+        let spentOnFixed = 0;
+        let changeableIndex = -1;
+
+        products.forEach((p, i) => {
+            if (!p.isChangeable) {
+                const itemCost = (((parseFloat(p.weight) || 0) * ((parseFloat(p.purity) || 0)/100)) / 0.995) * ratePerGram;
+                document.getElementById(`cost-${i}`).innerText = Math.round(itemCost).toLocaleString('en-IN');
+                spentOnFixed += itemCost;
+            } else {
+                changeableIndex = i;
+            }
+        });
+
+        if (changeableIndex !== -1) {
+            const moneyLeftForThis = totalPower - spentOnFixed;
+            const p = products[changeableIndex];
+            const purityPercent = (parseFloat(p.purity) || 0) / 100;
+
+            if (purityPercent > 0 && ratePerGram > 0) {
+                const calculatedWeight = (moneyLeftForThis * 0.995) / (ratePerGram * purityPercent);
+                p.weight = (calculatedWeight > 0 ? calculatedWeight : 0).toFixed(3);
+                document.getElementById('productBody').rows[changeableIndex].cells[2].querySelector('input').value = p.weight;
+                document.getElementById(`cost-${changeableIndex}`).innerText = Math.round(moneyLeftForThis).toLocaleString('en-IN');
+                document.getElementById('moneyLeft').innerText = "0";
+            } else {
+                document.getElementById(`cost-${changeableIndex}`).innerText = "0";
+                document.getElementById('moneyLeft').innerText = Math.round(moneyLeftForThis).toLocaleString('en-IN');
+            }
+        } else {
+            document.getElementById('moneyLeft').innerText = Math.round(totalPower - spentOnFixed).toLocaleString('en-IN');
+        }
+    }
+
+    addRow();
+    addRow();
+</script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Calculator</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .calculator-card {
+            background: var(--card-bg);
+            padding: 24px;
+            width: 100%;
+            max-width: 420px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .segmented-control {
+            display: flex;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .segmented-control input { display: none; }
+
+        .segmented-control label {
+            flex: 1;
+            text-align: center;
+            padding: 10px 2px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .segmented-control input:checked + label {
+            background: var(--card-bg);
+            color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .input-group { margin-bottom: 16px; }
+
+        label.field-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input:focus { border-color: var(--primary); }
+
+        .results-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 2px dashed #f1f5f9;
+        }
+
+        .result-row { margin-bottom: 8px; font-size: 0.95rem; }
+        .result-row strong { color: var(--primary); }
+
+        .total-highlight {
+            background: #f5f3ff;
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+            margin: 15px 0;
+        }
+
+        .calculation-steps {
+            margin-top: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #334155;
+            background: #fafafa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #f1f5f9;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator-card">
+    <h2>Interest Type</h2>
+    
+    <div class="segmented-control">
+        <input type="radio" name="type" id="type-si" value="si" onchange="calculate()">
+        <label for="type-si">Simple Interest</label>
+        
+        <input type="radio" name="type" id="type-ciA" value="ciAnnually" checked onchange="calculate()">
+        <label for="type-ciA">CI Annually</label>
+        
+        <input type="radio" name="type" id="type-ciH" value="ciHalfYearly" onchange="calculate()">
+        <label for="type-ciH">CI Half-Yearly</label>
+    </div>
+
+    <div class="input-group">
+        <label class="field-label">Principal</label>
+        <input type="number" id="principal" placeholder="Enter amount" oninput="calculate()">
+    </div>
+
+    <div class="input-group">
+        <label class="field-label">Rate Per Month (%)</label>
+        <input type="number" id="rate" value="2.5" step="0.1" oninput="calculate()">
+    </div>
+
+    <div class="input-group">
+        <label class="field-label">Date</label>
+        <input type="date" id="startDate" oninput="calculate()">
+    </div>
+
+    <div id="outputArea" style="display:none;" class="results-section">
+        <div class="result-row"><strong>Start Date:</strong> <span id="displayDate"></span></div>
+        <div class="result-row"><strong>Duration:</strong> <span id="resDuration"></span></div>
+        
+        <div class="total-highlight">
+            <div class="result-row">Total Interest: <strong id="resInterest"></strong></div>
+            <div class="result-row">Total Amount: <strong id="resTotal"></strong></div>
+        </div>
+
+        <div id="explanationTitle" style="font-weight:bold; color:var(--text-muted); margin-bottom: 2px;"></div>
+        <div id="explanationSteps" class="calculation-steps"></div>
+    </div>
+</div>
+
+<script>
+    function formatNiceDate(dateObj) {
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        return `${day} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+    }
+
+    function calculate() {
+        const p = parseFloat(document.getElementById("principal").value);
+        const rMonth = parseFloat(document.getElementById("rate").value);
+        const dateInput = document.getElementById("startDate").value;
+        const type = document.querySelector('input[name="type"]:checked').value;
+
+        if (isNaN(p) || isNaN(rMonth) || !dateInput) {
+            document.getElementById("outputArea").style.display = "none";
+            return;
+        }
+
+        document.getElementById("outputArea").style.display = "block";
+
+        const start = new Date(dateInput);
+        const today = new Date();
+        document.getElementById("displayDate").innerText = formatNiceDate(start);
+
+        let y = today.getFullYear() - start.getFullYear();
+        let m = today.getMonth() - start.getMonth();
+        let d = today.getDate() - start.getDate();
+
+        if (d < 0) {
+            const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+            m--; 
+            d += prevMonth; 
+        }
+        if (m < 0) { y--; m += 12; }
+
+        let totalFullMonths = (y * 12) + m;
+        let totalMonthsFractional = totalFullMonths + (d / 30);
+        let amount = p;
+        let stepsHtml = "";
+        let titleText = "";
+
+        if (type === "si") {
+            titleText = "Calculation (Simple Interest)";
+            let interest = p * (rMonth / 100) * totalMonthsFractional;
+            amount = p + interest;
+            stepsHtml = `${p.toLocaleString('en-IN')} × ${rMonth/100} × (${totalFullMonths}+(${d}/30)) = ₹ ${interest.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+        } 
+        else {
+            const interval = type === "ciAnnually" ? 12 : 6;
+            titleText = `Calculation (${type === "ciAnnually" ? 'CI Annually' : 'CI Half-Yearly'})`;
+            
+            let periods = Math.floor(totalFullMonths / interval);
+            let remMonths = totalFullMonths % interval;
+            let currentAmount = p;
+            let ratePerPeriod = (rMonth / 100) * interval;
+            let multiplier = (1 + ratePerPeriod);
+
+            for (let i = 1; i <= periods; i++) {
+                let periodDate = new Date(start);
+                periodDate.setMonth(start.getMonth() + (i * interval));
+                currentAmount = Math.round((p * Math.pow(multiplier, i)) * 100) / 100;
+                stepsHtml += `<div>${i}) ${formatNiceDate(periodDate)} : ${currentAmount.toLocaleString('en-IN')}</div>`;
+            }
+
+            if (remMonths > 0 || d > 0) {
+                let fractionalPart = remMonths + (d / 30);
+                let interestRem = currentAmount * (rMonth / 100) * fractionalPart;
+                let finalDate = formatNiceDate(today);
+                stepsHtml += `<div>${finalDate}: ${interestRem.toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>`;
+                currentAmount += interestRem;
+            }
+            amount = currentAmount;
+        }
+
+        document.getElementById("resDuration").innerText = `${y} years ${m} months ${d} days\n(${totalFullMonths} months ${d} days)`;
+        
+        // Final Totals with Indian Numbering System
+        document.getElementById("resInterest").innerText = "₹ " + (amount - p).toLocaleString('en-IN', {minimumFractionDigits:1, maximumFractionDigits:1});
+        document.getElementById("resTotal").innerText = "₹ " + amount.toLocaleString('en-IN', {minimumFractionDigits:1, maximumFractionDigits:1});
+        
+        document.getElementById("explanationTitle").innerText = titleText;
+        document.getElementById("explanationSteps").innerHTML = stepsHtml;
+    }
+</script>
+
+</body>
+</html>
